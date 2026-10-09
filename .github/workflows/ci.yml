@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  pester:
+    runs-on: ubuntu-latest
+    env:
+      MODULES: >-
+        Pester PSScriptAnalyzer Microsoft.Graph.Authentication Microsoft.Graph.Users
+        Microsoft.Graph.Users.Actions Microsoft.Graph.Groups Microsoft.Graph.Identity.SignIns
+        Microsoft.Graph.Reports Microsoft.Graph.DeviceManagement
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/powershell/Modules
+          key: psmodules-${{ hashFiles('.github/workflows/ci.yml') }}
+      - name: Install modules
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          foreach ($m in $env:MODULES -split '\s+') {
+            if (-not (Get-Module -ListAvailable $m)) { Install-Module $m -Scope CurrentUser -Force -AllowClobber -SkipPublisherCheck }
+          }
+      - name: Pester (mocked Microsoft Graph) and PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $r = Invoke-Pester ./tests -PassThru -Output Detailed
+          if ($r.FailedCount -gt 0) { exit 1 }

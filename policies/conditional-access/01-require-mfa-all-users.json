@@ -1,0 +1,13 @@
+{
+  "displayName": "CA01 - Require MFA for all users",
+  "state": "enabledForReportingButNotEnforced",
+  "conditions": {
+    "users": {
+      "includeUsers": ["All"],
+      "excludeGroups": ["{{BreakGlassGroupId}}"]
+    },
+    "applications": { "includeApplications": ["All"] },
+    "clientAppTypes": ["all"]
+  },
+  "grantControls": { "operator": "OR", "builtInControls": ["mfa"] }
+}

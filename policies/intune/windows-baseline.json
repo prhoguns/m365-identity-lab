@@ -1,0 +1,23 @@
+{
+  "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+  "displayName": "Windows - baseline compliance",
+  "description": "Encrypted, Secure Boot, supported Windows 11 build, Defender and firewall on. Managed by m365-identity-lab.",
+  "osMinimumVersion": "10.0.26100",
+  "bitLockerEnabled": true,
+  "secureBootEnabled": true,
+  "codeIntegrityEnabled": true,
+  "storageRequireEncryption": true,
+  "activeFirewallRequired": true,
+  "defenderEnabled": true,
+  "rtpEnabled": true,
+  "antivirusRequired": true,
+  "antiSpywareRequired": true,
+  "scheduledActionsForRule": [
+    {
+      "ruleName": "PasswordRequired",
+      "scheduledActionConfigurations": [
+        { "actionType": "block", "gracePeriodHours": 24, "notificationTemplateId": "", "notificationMessageCCList": [] }
+      ]
+    }
+  ]
+}

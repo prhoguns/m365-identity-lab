@@ -1,0 +1,19 @@
+{
+  "@odata.type": "#microsoft.graph.iosCompliancePolicy",
+  "displayName": "iOS - baseline compliance",
+  "description": "Passcode, supported iOS, not jailbroken. Managed by m365-identity-lab.",
+  "osMinimumVersion": "18.0",
+  "passcodeRequired": true,
+  "passcodeMinimumLength": 6,
+  "passcodeBlockSimple": true,
+  "passcodeMinutesOfInactivityBeforeLock": 5,
+  "securityBlockJailbrokenDevices": true,
+  "scheduledActionsForRule": [
+    {
+      "ruleName": "PasswordRequired",
+      "scheduledActionConfigurations": [
+        { "actionType": "block", "gracePeriodHours": 24, "notificationTemplateId": "", "notificationMessageCCList": [] }
+      ]
+    }
+  ]
+}

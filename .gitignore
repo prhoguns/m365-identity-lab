@@ -1,0 +1,3 @@
+config/lab.local.psd1
+logs/
+*.jsonl
