@@ -62,9 +62,29 @@ function Get-M365LabGroupId {
     param([Parameter(Mandatory)][string] $DisplayName)
 
     $escaped = $DisplayName.Replace("'", "''")
-    $groups = @(Get-MgGroup -Filter "displayName eq '$escaped'" -Property Id, DisplayName)
+    $groups = @(Get-MgGroup -Filter "displayName eq '$escaped'" -Property Id, DisplayName -ErrorAction Stop)
     if ($groups.Count -ne 1) {
         throw "Expected exactly one group named '$DisplayName', found $($groups.Count)."
     }
     $groups[0].Id
+}
+
+function Invoke-M365LabRead {
+    <#
+    .SYNOPSIS
+    Runs a Graph read and turns Microsoft's licensing errors into a message that says what is missing.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][scriptblock] $Call, [Parameter(Mandatory)][string] $Needs)
+
+    try {
+        & $Call
+    }
+    catch {
+        $text = "$($_.ErrorDetails.Message) $($_.Exception.Message)"
+        if ($text -match 'NonPremiumTenant|not licensed for this feature|Request not applicable to target tenant') {
+            throw "This report needs $Needs, which the tenant does not have ($(($_.Exception.Message -split "`n")[0]))."
+        }
+        throw
+    }
 }

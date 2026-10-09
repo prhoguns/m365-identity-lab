@@ -14,7 +14,9 @@ function Get-M365LabMfaGap {
     param()
 
     $weak = 'mobilePhone', 'alternateMobilePhone', 'officePhone'
-    Get-MgReportAuthenticationMethodUserRegistrationDetail -All |
+    Invoke-M365LabRead -Needs 'Entra ID P1 (authentication methods report)' {
+        Get-MgReportAuthenticationMethodUserRegistrationDetail -All -ErrorAction Stop
+    } |
         Where-Object { -not $_.IsMfaCapable -or -not ($_.MethodsRegistered | Where-Object { $_ -notin $weak }) } |
         ForEach-Object {
             [pscustomobject]@{

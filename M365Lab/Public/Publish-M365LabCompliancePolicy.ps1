@@ -23,7 +23,7 @@ function Publish-M365LabCompliancePolicy {
             throw "$($file.Name): Intune requires scheduledActionsForRule with at least a block action."
         }
         if (-not $groupId) { $groupId = Get-M365LabGroupId -DisplayName $Config.DeviceUsersGroup }
-        if ($null -eq $existing) { $existing = @(Get-MgDeviceManagementDeviceCompliancePolicy -All) }
+        if ($null -eq $existing) { $existing = @(Get-MgDeviceManagementDeviceCompliancePolicy -All -ErrorAction Stop) }
 
         $current = $existing | Where-Object DisplayName -EQ $policy.displayName
         if ($current) {
@@ -32,16 +32,16 @@ function Publish-M365LabCompliancePolicy {
         }
         else {
             if (-not $PSCmdlet.ShouldProcess($policy.displayName, 'Create compliance policy')) { continue }
-            $id = (New-MgDeviceManagementDeviceCompliancePolicy -BodyParameter $policy).Id
+            $id = (New-MgDeviceManagementDeviceCompliancePolicy -BodyParameter $policy -ErrorAction Stop).Id
             $action = 'Created'
         }
 
-        $assigned = @(Get-MgDeviceManagementDeviceCompliancePolicyAssignment -DeviceCompliancePolicyId $id) |
+        $assigned = @(Get-MgDeviceManagementDeviceCompliancePolicyAssignment -DeviceCompliancePolicyId $id -ErrorAction Stop) |
             Where-Object { $_.Target.AdditionalProperties['groupId'] -eq $groupId }
         if (-not $assigned -and $PSCmdlet.ShouldProcess($policy.displayName, "Assign to $($Config.DeviceUsersGroup)")) {
             New-MgDeviceManagementDeviceCompliancePolicyAssignment -DeviceCompliancePolicyId $id -BodyParameter @{
                 target = @{ '@odata.type' = '#microsoft.graph.groupAssignmentTarget'; groupId = $groupId }
-            } | Out-Null
+            } -ErrorAction Stop | Out-Null
             $action += ', assigned'
         }
         [pscustomobject]@{ DisplayName = $policy.displayName; Platform = $policy.'@odata.type'; Action = $action; Id = $id }

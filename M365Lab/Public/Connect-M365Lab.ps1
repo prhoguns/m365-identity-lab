@@ -20,7 +20,9 @@ function Connect-M365Lab {
         'Policy.Read.All', 'DeviceManagementManagedDevices.Read.All', 'DeviceManagementConfiguration.Read.All'
     }
     else {
-        'User.ReadWrite.All', 'Group.ReadWrite.All', 'Directory.Read.All', 'AuditLog.Read.All',
+        # User.ReadWrite.All does not cover password resets; offboarding needs User-PasswordProfile.ReadWrite.All.
+        'User.ReadWrite.All', 'User-PasswordProfile.ReadWrite.All', 'Group.ReadWrite.All', 'Directory.Read.All',
+        'AuditLog.Read.All',
         'UserAuthenticationMethod.Read.All', 'Policy.Read.All', 'Policy.ReadWrite.ConditionalAccess',
         'DeviceManagementManagedDevices.Read.All', 'DeviceManagementConfiguration.ReadWrite.All'
     }

@@ -15,8 +15,10 @@ function Get-M365LabNonCompliantDevice {
     )
 
     $cutoff = $Now.AddDays(-$StaleSyncDays)
-    Get-MgDeviceManagementManagedDevice -All `
-        -Property Id, DeviceName, OperatingSystem, OsVersion, ComplianceState, LastSyncDateTime, UserPrincipalName, IsEncrypted |
+    Invoke-M365LabRead -Needs 'Microsoft Intune' {
+        Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop `
+            -Property Id, DeviceName, OperatingSystem, OsVersion, ComplianceState, LastSyncDateTime, UserPrincipalName, IsEncrypted
+    } |
         Where-Object { $_.ComplianceState -ne 'compliant' -or $_.LastSyncDateTime -lt $cutoff } |
         ForEach-Object {
             [pscustomobject]@{

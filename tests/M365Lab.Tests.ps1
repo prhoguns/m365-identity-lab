@@ -109,7 +109,8 @@ Describe 'Disable-M365LabUser' {
 
     It 'blocks sign-in, revokes sessions, removes static groups and direct licences, and audits it' {
         $r = Disable-M365LabUser -UserPrincipalName jane@contoso.onmicrosoft.com -Reason 'Resigned' -Config $Config -Confirm:$false
-        Should -Invoke Update-MgUser -ModuleName M365Lab -Times 1 -ParameterFilter { $AccountEnabled -eq $false -and $PasswordProfile.Password.Length -eq 32 }
+        Should -Invoke Update-MgUser -ModuleName M365Lab -Times 1 -ParameterFilter { $PesterBoundParameters.ContainsKey('AccountEnabled') -and -not $AccountEnabled }
+        Should -Invoke Update-MgUser -ModuleName M365Lab -Times 1 -ParameterFilter { $PasswordProfile.Password.Length -eq 32 }
         Should -Invoke Revoke-MgUserSignInSession -ModuleName M365Lab -Times 1
         Should -Invoke Remove-MgGroupMemberDirectoryObjectByRef -ModuleName M365Lab -Times 1 -ParameterFilter { $GroupId -eq 'g1' }
         Should -Invoke Set-MgUserLicense -ModuleName M365Lab -Times 1 -ParameterFilter { $RemoveLicenses -contains 'sku-direct' }
@@ -119,6 +120,28 @@ Describe 'Disable-M365LabUser' {
         $audit.reason | Should -Be 'Resigned'
         $audit.licencesRemoved | Should -Be @('sku-direct')
         $audit.by | Should -Be 'admin@contoso.onmicrosoft.com'
+        $audit.passwordReset | Should -BeTrue
+    }
+
+    It 'stops before touching groups if sign-in cannot be blocked' {
+        # Found on a live tenant: a failed first step must not be followed by an audit record that looks complete.
+        Mock -ModuleName M365Lab Update-MgUser { if ($PesterBoundParameters.ContainsKey('AccountEnabled')) { throw 'Forbidden' } }
+        $before = if (Test-Path $Config.AuditLog) { @(Get-Content $Config.AuditLog).Count } else { 0 }
+        { Disable-M365LabUser -UserPrincipalName jane@contoso.onmicrosoft.com -Reason 'x' -Config $Config -Confirm:$false } |
+            Should -Throw '*Forbidden*'
+        Should -Invoke Revoke-MgUserSignInSession -ModuleName M365Lab -Times 0
+        Should -Invoke Remove-MgGroupMemberDirectoryObjectByRef -ModuleName M365Lab -Times 0
+        $after = if (Test-Path $Config.AuditLog) { @(Get-Content $Config.AuditLog).Count } else { 0 }
+        $after | Should -Be $before
+    }
+
+    It 'records a failed password reset but still finishes once the account is blocked' {
+        Mock -ModuleName M365Lab Update-MgUser { if ($PasswordProfile) { throw 'Insufficient privileges' } }
+        $r = Disable-M365LabUser -UserPrincipalName jane@contoso.onmicrosoft.com -Reason 'x' -Config $Config -Confirm:$false -WarningVariable warn 3>$null
+        $r.passwordReset | Should -BeFalse
+        $r.accountDisabled | Should -BeTrue
+        $warn | Should -Match 'password not reset'
+        Should -Invoke Remove-MgGroupMemberDirectoryObjectByRef -ModuleName M365Lab -Times 1
     }
 
     It 'changes nothing with -WhatIf, and the preview counts what would really be removed' {
@@ -159,6 +182,11 @@ Describe 'Reports' {
         $r[0].Issue | Should -Be 'Phone methods only'
     }
 
+    It 'says which licence a report needs when the tenant lacks it' {
+        Mock -ModuleName M365Lab Get-MgUser { throw "Authentication_RequestFromNonPremiumTenantOrB2CTenant: Tenant is not a B2C tenant and doesn't have premium license" }
+        { Get-M365LabStaleUser } | Should -Throw '*needs Entra ID P1*'
+    }
+
     It 'lists noncompliant and silent devices' {
         $now = [datetime]'2026-10-01T00:00:00Z'
         Mock -ModuleName M365Lab Get-MgDeviceManagementManagedDevice {
@@ -192,6 +220,12 @@ Describe 'Publish-M365LabConditionalAccess' {
     It 'turns policies on only with -Enforce' {
         Publish-M365LabConditionalAccess -Config $Config -Enforce -Confirm:$false | Out-Null
         Should -Invoke New-MgIdentityConditionalAccessPolicy -ModuleName M365Lab -Times 2 -ParameterFilter { $BodyParameter.state -eq 'enabled' }
+    }
+
+    It 'fails loudly instead of reporting a policy the tenant rejected' {
+        # Found on a live tenant without Entra ID P1: the create failed but a success row was printed.
+        Mock -ModuleName M365Lab New-MgIdentityConditionalAccessPolicy { throw 'AccessDenied: Your tenant is not licensed for this feature.' }
+        { Publish-M365LabConditionalAccess -Config $Config -Confirm:$false } | Should -Throw '*not licensed*'
     }
 
     It 'refuses a policy that does not exclude the break-glass group' {

@@ -51,10 +51,10 @@ function New-M365LabUser {
         $user = New-MgUser -DisplayName "$FirstName $LastName" -GivenName $FirstName -Surname $LastName `
             -UserPrincipalName $upn -MailNickname $mailNickname -AccountEnabled `
             -Department $Department -JobTitle $JobTitle -UsageLocation $Config.UsageLocation `
-            -PasswordProfile @{ Password = $password; ForceChangePasswordNextSignIn = $true }
+            -PasswordProfile @{ Password = $password; ForceChangePasswordNextSignIn = $true } -ErrorAction Stop
 
         foreach ($groupName in $Config.DepartmentGroups[$Department], $Config.LicenseGroup) {
-            New-MgGroupMember -GroupId (Resolve-Group $groupName) -DirectoryObjectId $user.Id
+            New-MgGroupMember -GroupId (Resolve-Group $groupName) -DirectoryObjectId $user.Id -ErrorAction Stop
         }
 
         [pscustomobject]@{

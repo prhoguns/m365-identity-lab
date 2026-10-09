@@ -49,7 +49,7 @@ compliance policies kept as code. It comes with the runbooks a help desk follows
 
 ## Tests
 
-`Invoke-Pester ./tests` runs 44 tests in CI against **mocked** Microsoft Graph cmdlets. The mocks wrap
+`Invoke-Pester ./tests` runs 48 tests in CI against **mocked** Microsoft Graph cmdlets. The mocks wrap
 the real SDK cmdlets, so a wrong cmdlet or parameter name fails the test. They cover:
 
 - UPN collisions, accent handling and password strength.
@@ -60,9 +60,44 @@ the real SDK cmdlets, so a wrong cmdlet or parameter name fails the test. They c
 Every policy file and script is also checked: valid structure, break-glass exclusion, Intune's
 required block action, and no PSScriptAnalyzer warnings.
 
-## Live tenant
+## Live tenant run (9 October 2026)
 
-Not yet run against a live tenant. Results from a Microsoft 365 trial tenant will be added here.
+Run against a real Microsoft 365 **Business Standard** tenant: one real user, security defaults on, no Entra
+ID P1 and no Intune. Lab objects used a `LAB-` prefix on the `onmicrosoft.com` domain and were removed
+afterwards with [`scripts/Remove-LabObjects.ps1`](scripts/Remove-LabObjects.ps1).
+
+| Step | Result |
+|---|---|
+| [`New-LabGroups.ps1`](scripts/New-LabGroups.ps1) | 7 security groups created |
+| Onboarding, 4 new hires | 4 accounts in the right department and licence groups; `Lucas Côté` became `lucas.cote` |
+| Onboarding a second "Amara Okafor" | `amara.okafor2`, no collision |
+| Offboarding | **Found two bugs, see below.** After the fix: sign-in blocked, sessions revoked, groups removed, audit record written |
+| Stale accounts, MFA gaps | Stopped with `Authentication_RequestFromNonPremiumTenantOrB2CTenant`: both need Entra ID P1 |
+| Devices, Intune compliance | Stopped with "Request not applicable to target tenant": no Intune |
+| Conditional Access | Stopped with `AccessDenied: Your tenant is not licensed for this feature` |
+| Cleanup | 5 users and 7 groups removed; tenant back to its one real user |
+
+The mocked tests could not have found what the live run did:
+
+- **Offboarding left the account enabled and said it hadn't.** The sign-in block and the password reset
+  were one Graph call. Resetting another user's password needs `User-PasswordProfile.ReadWrite.All`,
+  which `User.ReadWrite.All` does not include, so the call failed with 403. Graph SDK errors don't stop
+  PowerShell by default, so the function carried on: it removed the groups and wrote an audit record that
+  looked complete, while the leaver could still sign in. Now sign-in is blocked on its own, first, and any
+  failure there stops everything. The password reset is a separate step whose failure is recorded
+  (`passwordReset: false`) and warned about. The missing permission is added to `Connect-M365Lab`.
+- **Publishing printed success for policies the tenant rejected.** The same default made
+  `Publish-M365LabConditionalAccess` print "Create" rows with empty IDs. Every Graph call that changes
+  something now stops on error. Reports that need a licence say which one, instead of passing on
+  Microsoft's error code.
+
+Four tests now pin these failure paths (48 in total).
+
+Also learned:
+- **Security defaults block device-code sign-in** (`AADSTS530035`); use the normal browser sign-in.
+- **Security defaults and Conditional Access can't both be on.** A tenant moving to Conditional Access
+  needs Entra ID P1. It should create policies that cover what security defaults did (CA01, CA02) in
+  report-only mode, and switch security defaults off only when enforcing them.
 
 ## Use it
 

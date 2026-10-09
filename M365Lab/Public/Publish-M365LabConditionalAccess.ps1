@@ -30,7 +30,7 @@ function Publish-M365LabConditionalAccess {
             throw "$($file.Name): refusing to deploy a policy that does not exclude the break-glass group."
         }
         if (-not $breakGlassId) { $breakGlassId = Get-M365LabGroupId -DisplayName $Config.BreakGlassGroup }
-        if ($null -eq $existing) { $existing = @(Get-MgIdentityConditionalAccessPolicy -All) }
+        if ($null -eq $existing) { $existing = @(Get-MgIdentityConditionalAccessPolicy -All -ErrorAction Stop) }
 
         $policy = ($text -replace '\{\{BreakGlassGroupId\}\}', $breakGlassId) | ConvertFrom-Json -AsHashtable
         $policy.state = if ($Enforce) { 'enabled' } else { 'enabledForReportingButNotEnforced' }
@@ -39,11 +39,11 @@ function Publish-M365LabConditionalAccess {
         $action = if ($current) { "Update ($($policy.state))" } else { "Create ($($policy.state))" }
         if (-not $PSCmdlet.ShouldProcess($policy.displayName, $action)) { continue }
         if ($current) {
-            Update-MgIdentityConditionalAccessPolicy -ConditionalAccessPolicyId $current.Id -BodyParameter $policy
+            Update-MgIdentityConditionalAccessPolicy -ConditionalAccessPolicyId $current.Id -BodyParameter $policy -ErrorAction Stop
             $id = $current.Id
         }
         else {
-            $id = (New-MgIdentityConditionalAccessPolicy -BodyParameter $policy).Id
+            $id = (New-MgIdentityConditionalAccessPolicy -BodyParameter $policy -ErrorAction Stop).Id
         }
         [pscustomobject]@{ DisplayName = $policy.displayName; State = $policy.state; Action = $action.Split(' ')[0]; Id = $id }
     }

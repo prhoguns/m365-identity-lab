@@ -16,8 +16,10 @@ function Get-M365LabStaleUser {
     )
 
     $cutoff = $Now.AddDays(-$Days)
-    $users = Get-MgUser -All -Filter 'accountEnabled eq true' `
-        -Property Id, UserPrincipalName, DisplayName, UserType, CreatedDateTime, SignInActivity
+    $users = Invoke-M365LabRead -Needs 'Entra ID P1 (sign-in activity)' {
+        Get-MgUser -All -Filter 'accountEnabled eq true' -ErrorAction Stop `
+            -Property Id, UserPrincipalName, DisplayName, UserType, CreatedDateTime, SignInActivity
+    }
 
     foreach ($u in $users) {
         $last = $u.SignInActivity.LastSuccessfulSignInDateTime
